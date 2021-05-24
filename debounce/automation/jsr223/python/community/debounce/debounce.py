@@ -21,11 +21,14 @@ from community.time_utils import parse_duration
 from community.timer_mgr import TimerMgr
 from community.rules_utils import create_simple_rule, delete_rule, load_rule_with_metadata
 
-# improve typing and linting as per
-# https://github.com/CrazyIvan359/openhab-stubs/blob/master/Usage.md
+##### improve typing and linting START
+# as per https://github.com/CrazyIvan359/openhab-stubs
+# TODO: wrap in try catch block
 import typing as t
 if t.TYPE_CHECKING:  # imports used only for type hints
     from core.jsr223.scope import items
+# you can delete this whole block if you don't want to setup typing and linting
+##### improve typing and linting END
 
 
 log = logging.getLogger("{}.Debounce".format(LOG_PREFIX))
