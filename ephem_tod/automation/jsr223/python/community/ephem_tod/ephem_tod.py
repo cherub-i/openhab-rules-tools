@@ -17,10 +17,17 @@ from core.metadata import get_metadata, get_key_value, get_value
 from core.actions import Ephemeris
 from core.utils import send_command_if_different
 from core.log import log_traceback, logging, LOG_PREFIX
-from org.joda.time import DateTime
-from community.time_utils import to_today
+from java.time import ZonedDateTime
+from community.time_utils import to_today, to_datetime
 from community.timer_mgr import TimerMgr
 from community.rules_utils import create_simple_rule, delete_rule, load_rule_with_metadata
+
+# improve typing and linting as per
+# https://github.com/CrazyIvan359/openhab-stubs/blob/master/Usage.md
+import typing as t
+if t.TYPE_CHECKING:  # imports used only for type hints
+    from core.jsr223.scope import events, items, UnDefType, DateTimeType
+
 
 # Name of the Item to trigger reloading of the time of day rule.
 ETOD_RELOAD_ITEM = "Reload_ETOD"
@@ -79,6 +86,7 @@ def get_times():
         - weekend: weekend as defined in Ephemeris
         - weekday: not weekend days
         - default: used when no other day type is detected for today
+
     Returns:
         - a list of names for DateTime Items; None if no valid start times were
         found.
@@ -96,8 +104,7 @@ def get_times():
                    'weekend': types("weekend") if Ephemeris.isWeekend() else [],
                    'dayset': cond(types('dayset'),
                                 lambda i: Ephemeris.isInDayset(get_key_value(i, NAMESPACE, "set"))),
-                   'holiday': cond(types('holiday'),
-                                lambda i: Ephemeris.isBankHoliday()),
+                   'holiday': types('holiday') if Ephemeris.isBankHoliday() else [], # changed to simpler way of getting holidays
                    'custom': cond(types('custom'),
                                 lambda i: Ephemeris.isBankHoliday(0, get_key_value(i, NAMESPACE, "file")))}
 
@@ -122,6 +129,7 @@ def get_times():
 @log_traceback
 def etod_transition(state):
     """Called from the timers, transitions to the next time of day.
+
     Arguments:
         - state: the state to transition into
     """
@@ -135,24 +143,26 @@ def create_timers(start_times):
     of DateTime Item names. If an Item is dated with yesterday, the Item is
     updated to today. The ETOD_ITEM is commanded to the current time of day if
     it's not already the correct state.
+
     Arguments:
         - start_times: list of names for DateTime Items containing the start
         times for each time period
     """
 
-    now = DateTime().now()
+    now = ZonedDateTime.now() # changed as DateTime is not available in OH3
     most_recent_time = now.minusDays(1)
     most_recent_state = items[ETOD_ITEM]
 
     for time in start_times:
 
-        item_time = DateTime(str(items[time]))
+        item_time = to_datetime(items[time]) # changed as DateTime is not available in OH3
+
         trigger_time = to_today(items[time])
 
         # Update the Item with today's date if it was for yesterday.
         if item_time.isBefore(trigger_time):
             log.debug("Item {} is yesterday, updating to today".format(time))
-            events.postUpdate(time, str(trigger_time))
+            events.postUpdate(time, str(DateTimeType(trigger_time))) # changed as DateTime is not available in OH3
 
         # Get the etod state from the metadata.
         state = get_value(time, NAMESPACE)
@@ -219,8 +229,8 @@ def ephem_tod(event):
 
     # Create a timer to run this rule again a little after midnight. Work around
     # to deal with the fact that cron triggers do not appear to be workind.
-    now = DateTime().now()
-    reload_time = now.withTime(0,5,0,0)
+    now = ZonedDateTime.now() # changed as DateTime is not available in OH3
+    reload_time = now.withHour(0).withMinute(2).withSecond(0).withNano(0) # changed as DateTime is not available in OH3
     if reload_time.isBefore(now):
         reload_time = reload_time.plusDays(1)
         log.info("Creating reload timer for {}".format(reload_time))

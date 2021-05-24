@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 from core.jsr223.scope import events
-from org.joda.time import DateTime
+# from org.joda.time import DateTime
+from java.time import ZonedDateTime
 from community.time_utils import to_datetime
 from community.timer_mgr import TimerMgr
 
@@ -60,8 +61,8 @@ def defer(target, value, when, log, is_command=True):
                   .format(when))
 
     # If trigger_time is in the past, schedule for now
-    if trigger_time.isBefore(DateTime.now()):
-        trigger_time = DateTime.now()
+    if trigger_time.isBefore(ZonedDateTime.now()):
+        trigger_time = ZonedDateTime.now()
 
     # Schedule the timer
     func = lambda: timer_body(target, value, is_command, when, log)

@@ -17,13 +17,20 @@ import re
 import traceback
 from datetime import datetime, date, time, timedelta
 from core.log import logging, LOG_PREFIX
-from core.date import to_joda_datetime, to_python_datetime, to_java_zoneddatetime
+from core.date import to_python_datetime, to_java_zoneddatetime
 from core.jsr223 import scope
 from java.time import ZonedDateTime
 from java.time.temporal import ChronoUnit
-from org.joda.time import DateTime
 
-
+# improve typing and linting as per
+# https://github.com/CrazyIvan359/openhab-stubs/blob/master/Usage.md
+import typing as t
+if t.TYPE_CHECKING:
+    basestring = str
+    unicode = str
+else:
+    basestring = basestring  # type: ignore # pylint: disable=self-assigning-variable
+    unicode = unicode  # type: ignore # pylint: disable=self-assigning-variable
 
 
 duration_regex = re.compile(r'^((?P<days>[\.\d]+?)d)? *((?P<hours>[\.\d]+?)h)? *((?P<minutes>[\.\d]+?)m)? *((?P<seconds>[\.\d]+?)s)?$')
@@ -32,6 +39,7 @@ iso8601_regex = re.compile(r'^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01
 def parse_duration(time_str, log=logging.getLogger("{}.time_utils".format(LOG_PREFIX))):
     """Parse a time string e.g. (2h13m) into a timedelta object
     https://stackoverflow.com/questions/4628122/how-to-construct-a-timedelta-object-from-a-simple-string
+
     Arguments:
         - time_str: A string identifying a duration. Use
             - d: days
@@ -47,6 +55,7 @@ def parse_duration(time_str, log=logging.getLogger("{}.time_utils".format(LOG_PR
         - log: optional, logger object for logging a warning if the passed in
         string is not parsable. A "time_utils" logger will be used if not
         supplied.
+
     Returns:
         A ``datetime.timedelta`` object representing the supplied time duration
         or ``None`` if ``time_str`` cannot be parsed.
@@ -63,25 +72,29 @@ def parse_duration(time_str, log=logging.getLogger("{}.time_utils".format(LOG_PR
         return timedelta(**time_params)
 
 def delta_to_datetime(td):
-    """Takes a Python timedelta Object and converts it to a DateTime from now.
+    """Takes a Python timedelta Object and converts it to a ZonedDateTime from now.
+
     Arguments:
         - td: The Python datetime.timedelta Object
+
     Returns:
-        A Joda DateTime td from now.
+        A ZonedDateTime td from now.
     """
 
-    return (DateTime.now().plusDays(td.days)
-               .plusSeconds(td.seconds)
-               .plusMillis(td.microseconds//1000))
+    return (ZonedDateTime.now().plusDays(td.days)
+            .plusSeconds(td.seconds)
+            .plusNanos(td.microseconds//1000 * 1000000))
 
 
 def parse_duration_to_datetime(time_str, log=logging.getLogger("{}.time_utils".format(LOG_PREFIX))):
-    """Parses the passed in time string (see parse_duration) and returns a Joda
-    DateTime that amount of time from now.
+    """Parses the passed in time string (see parse_duration) and returns a
+    ZonedDateTime that amount of time from now.
+
     Arguments:
         - time_str: A string identifying a duration. See parse_duration above
+
     Returns:
-        A Joda DateTime time_str from now
+        A ZonedDateTime time_str from now
     """
 
     return delta_to_datetime(parse_duration(time_str, log))
@@ -101,10 +114,9 @@ def is_iso8601(dt_str):
         pass
     return False
 
-def to_datetime(when, log=logging.getLogger("{}.time_utils".format(LOG_PREFIX)), output = 'Joda'):
-    """Based on what type when is, converts when to a Joda DateTime object.
+def to_datetime(when, log=logging.getLogger("{}.time_utils".format(LOG_PREFIX)), output = 'Java'):
+    """Based on what type when is, converts when to a Python DateTime object.
     Type:
-        - DateTime: returns when as is
         - int: returns now.plusMillis(when)
         - openHAB number type: returns now.plusMillis(when.intValue())
         - ISO8601 string: DateTime(when)
@@ -114,15 +126,16 @@ def to_datetime(when, log=logging.getLogger("{}.time_utils".format(LOG_PREFIX)),
         otherwise a java.time.sql object will be returned due to a bug in Jython
         - Python datetime
         - Python time: returns DateTime with today date and system timezone
-         
+
     Arguments:
         - when: the Object to convert to a DateTime
         - log: optional logger, when not supplied one is created for logging errors
-        - output: object returned as a string. If not specified returns a Joda DateTime object
+        - output: object returned as a string. If not specified returns a ZonedDateTime object
                   'Python': return datetime object
                   'Java': return a ZonedDateTime object
+
     Returns:
-        - DateTime specified by when
+        - ZonedDateTime specified by when
         - datetime specified by when if output = 'Python'
         - ZonedDateTime specified by when if output = 'Java'
     """
@@ -132,11 +145,7 @@ def to_datetime(when, log=logging.getLogger("{}.time_utils".format(LOG_PREFIX)),
     dt_java = None
 
     try:
-        if isinstance(when, DateTime):
-            log.debug('when is DateTime: '+str(when))
-            dt_java = to_java_zoneddatetime(when)
-
-        elif isinstance(when, (str, unicode)):
+        if isinstance(when, (str, unicode)):
             if is_iso8601(when):
                 log.debug('when is iso8601: '+str(when))
                 dt_java = ZonedDateTime.parse(str(when))
@@ -151,7 +160,7 @@ def to_datetime(when, log=logging.getLogger("{}.time_utils".format(LOG_PREFIX)),
 
         elif isinstance(when, (scope.DateTimeType)):
             log.debug('when is DateTimeType: ' + str(when))
-            dt_java = to_java_zoneddatetime(DateTime(str(when)))
+            dt_java = when.getZonedDateTime()
 
         elif isinstance(when, (scope.DecimalType, scope.PercentType, scope.QuantityType)):
             log.debug('when is decimal, percent or quantity type: ' + str(when))
@@ -167,7 +176,11 @@ def to_datetime(when, log=logging.getLogger("{}.time_utils".format(LOG_PREFIX)),
 
         elif isinstance(when, time):
             log.debug('when is python time object: ' + str(when))
-            dt_java = ZonedDateTime.now().withHour(when.hour).withMinute(when.minute).withSecond(when.second)
+            dt_java = ZonedDateTime.now() \
+                            .withHour(when.hour) \
+                            .withMinute(when.minute) \
+                            .withSecond(when.second) \
+                            .withNano(when.microsecond * 1000) # nanos need to be set, otherwise they_ll be taken from the actual time
 
         else:
             log.warn('When is an unknown type {}'.format(type(when)))
@@ -182,28 +195,26 @@ def to_datetime(when, log=logging.getLogger("{}.time_utils".format(LOG_PREFIX)),
     elif output == 'Java':
         log.debug("returning dt java")
         return dt_java if dt_java is not None else to_java_zoneddatetime(dt_python)
+    elif output == 'Joda':
+        log.error("to_datetime trying to return dt joda - use output = 'Python' or output = 'Java' instead")
     else:
-        log.debug("returning dt joda")
-        #timezone from python to joda can fail. using system timezone
-        return (to_joda_datetime(dt_java) if dt_java is not None 
-                        else to_joda_datetime(dt_python.replace(tzinfo=None)))
+        log.error("to_datetime cannot output [{}]".format(output))
 
-def to_today(when, log=logging.getLogger("{}.time_utils".format(LOG_PREFIX)), output='Joda'):
+def to_today(when, log=logging.getLogger("{}.time_utils".format(LOG_PREFIX)), output='Java'):
     """Takes a when (see to_datetime) and updates the date to today.
     Arguments:
         - when : One of the types or formats supported by to_datetime
         - log: optional logger, when not supplied one is created for logging errors
     Returns:
-        - DateTime specified by when with today's date.
-        - datetime specified by when if output = 'Python'
-        - ZonedDateTime specified by when if output = 'Java'
+        - ZonedDateTime specified by when with today's date.
+        - datetime specified by when with today's date if output = 'Python'
+        - ZonedDateTime specified by when with today's date if output = 'Java'
     """
     log.debug('output is: '+ str(output))
 
     if output == 'Python':
         dt = to_datetime(when, log=log, output = 'Python')
         return datetime.combine(date.today(), dt.timetz())
-    
     elif output == 'Java':
         dt = to_datetime(when, log=log, output = 'Java')
         now = dt.now()
@@ -211,10 +222,7 @@ def to_today(when, log=logging.getLogger("{}.time_utils".format(LOG_PREFIX)), ou
                    .withMinute(dt.getMinute())
                    .withSecond(dt.getSecond())
                    .withNano(dt.getNano()))
-        
+    elif output == 'Joda':
+        log.error("to_today trying to return dt joda - use output = 'Python' or output = 'Java' instead")
     else:
-        dt = to_datetime(when, log=log)
-        now = dt.now()
-
-    return (now.withTime(dt.getHourOfDay(), dt.getMinuteOfHour(),
-                         dt.getSecondOfMinute(), 0))
+        log.error("to_today cannot output [{}]".format(output))
