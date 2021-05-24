@@ -21,6 +21,13 @@ from community.time_utils import parse_duration
 from community.timer_mgr import TimerMgr
 from community.rules_utils import create_simple_rule, delete_rule, load_rule_with_metadata
 
+# improve typing and linting as per
+# https://github.com/CrazyIvan359/openhab-stubs/blob/master/Usage.md
+import typing as t
+if t.TYPE_CHECKING:  # imports used only for type hints
+    from core.jsr223.scope import items
+
+
 log = logging.getLogger("{}.Debounce".format(LOG_PREFIX))
 
 timers = TimerMgr()
@@ -32,8 +39,10 @@ def get_config(item_name, log):
     """Parses the config string to validate it's correctness and completeness.
     At a minimum it verifies the proxy Item exists, the timeout exists and is
     parsable.
+
     Arguments:
       item_name: the name of an Item to get the debounce metadata from
+
     Returns:
       An Item metadata Object or None if there is no such metadata or the
       metadata is malformed.
@@ -75,6 +84,7 @@ def end_debounce(state, proxy_name, is_command):
     """Called at the end of the debounce period, update or commands the proxy
     Item with the passed in state if it's different from the proxy's current
     state.
+
     Arguments:
       state: the state to update or command the proxy Item to
       proxy_name: the name of the proxy Item

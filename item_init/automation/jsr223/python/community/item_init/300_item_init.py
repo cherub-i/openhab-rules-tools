@@ -18,6 +18,14 @@ from core.triggers import when
 from core.metadata import get_metadata, get_key_value, get_value, remove_metadata
 from core.utils import postUpdate, post_update_if_different
 
+# improve typing and linting as per
+# https://github.com/CrazyIvan359/openhab-stubs/blob/master/Usage.md
+import typing as t
+if t.TYPE_CHECKING:  # imports used only for type hints
+    from core.jsr223.scope import items, UnDefType
+
+
+
 TRIGGER_ITEM = "InitItems"
 
 # Create the triggering Item if it doesn't already exist.

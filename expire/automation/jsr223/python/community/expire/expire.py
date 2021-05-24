@@ -1,3 +1,5 @@
+# adapted from original file as per this pull request:
+# https://github.com/rkoshak/openhab-rules-tools/pull/41
 """
 Copyright July 7, 2020 Richard Koshak
 
@@ -19,6 +21,18 @@ from core.log import logging, LOG_PREFIX, log_traceback
 from community.time_utils import parse_duration
 from community import deferred
 from community.rules_utils import create_simple_rule, delete_rule, load_rule_with_metadata
+
+# improve typing and linting as per
+# https://github.com/CrazyIvan359/openhab-stubs/blob/master/Usage.md
+import typing as t
+if t.TYPE_CHECKING:  # imports used only for type hints
+    from core.jsr223.scope import UnDefType, UNDEF, ir, StringType
+    basestring = str
+    unicode = str
+else:
+    basestring = basestring  # type: ignore # pylint: disable=self-assigning-variable
+    unicode = unicode  # type: ignore # pylint: disable=self-assigning-variable
+
 
 # Create an Item to trigger the rule on command if it doesn't exist.
 RELOAD_EXPIRE_ITEM = "Reload_Expire"
