@@ -21,6 +21,16 @@ from core.jsr223 import scope
 from core.log import log_traceback
 
 
+##### improve typing and linting START
+# as per https://github.com/CrazyIvan359/openhab-stubs
+# TODO: wrap in try catch block
+import typing as t
+if t.TYPE_CHECKING:  # imports used only for type hints
+    # from core.jsr223.scope import
+    pass
+# you can delete this whole block if you don't want to setup typing and linting
+##### improve typing and linting END
+
 @log_traceback
 def create_switch_trigger_item(item_name, logger):
     """Checks to see if the passed in Item exists and if it doesn't creates it
@@ -185,8 +195,10 @@ def generate_triggers(namespace, check_config, event, logger):
     Arguments:
         - namespace: the metadata namespace to look for
         - check_config: function to call to check the validity of the metadata
-        - event: rule trigger event (e.g. changed)
+        - event: either rule trigger event (e.g. changed) as string or a function
+        to call to get an indiviual event
         - logger: used to log out errors and informational statement
+
     Returns:
         A list of rule trigger strings.
     """
@@ -194,7 +206,11 @@ def generate_triggers(namespace, check_config, event, logger):
     triggers = []
     for i in [i for i in scope.items if get_value(i, namespace)]:
         if check_config(i, logger):
-            triggers.append("Item {} {}".format(i, event))
+            # extension to allow individual events
+            if callable(event):
+                triggers.append("Item {} {}".format(i, event(i)))
+            else:
+                triggers.append("Item {} {}".format(i, event))
 
     return triggers
 
